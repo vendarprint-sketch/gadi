@@ -94,21 +94,22 @@ export default async function handler(req, res) {
             'Accept-Language': 'en-US,en;q=0.9'
           },
           body: body,
-          agent: currentProxy.agent // <--- डायनामिक प्रॉक्सी (पहले SOCKS5, फिर HTTP)
+          agent: currentProxy.agent
         });
 
         const text = await response.text();
 
         if (text.includes('ACCESS_DENIED_HOURLY_USAGE_VALIDATION') || text.includes('ACCESS_DENIED_IP_USAGE_VALIDATION')) {
           lastError = 'Rate limited or blocked by PolicyBoss';
-          continue; // अगला प्रॉक्सी या UA ट्राई करो
+          continue; 
         }
 
         let data;
         try {
           data = JSON.parse(text);
         } catch (e) {
-          lastError = 'Invalid JSON received';
+          // UPDATE: यहाँ हमें असली HTML या टेक्स्ट एरर दिखेगा कि PolicyBoss रिजेक्ट क्यों कर रहा है
+          lastError = `Invalid JSON. Raw Response: ${text.substring(0, 300)}`; 
           continue; 
         }
 
@@ -117,21 +118,20 @@ export default async function handler(req, res) {
           finalResult = cleaned;
           strategyUsed = `UA-${i + 1}`;
           proxyTypeUsed = currentProxy.name;
-          break; // सक्सेस! प्रॉक्सी लूप से बाहर निकलें
+          break; 
         } else if (cleaned) {
           finalResult = cleaned;
           strategyUsed = `UA-${i + 1}`;
           proxyTypeUsed = currentProxy.name;
           lastError = 'Vehicle not found in PolicyBoss';
-          break; // डाटा मिला पर गाड़ी नहीं मिली, लूप से बाहर निकलें
+          break; 
         }
       } catch (error) {
         lastError = `${currentProxy.name} Error: ${error.message}`;
-        // एरर आने पर लूप चलता रहेगा और दूसरी प्रॉक्सी (HTTP) ट्राई करेगा
       }
     }
     
-    if (finalResult) break; // अगर रिजल्ट मिल गया, तो UA लूप से भी बाहर निकलें
+    if (finalResult) break; 
   }
 
   if (finalResult && finalResult.found) {
